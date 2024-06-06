@@ -1,3 +1,5 @@
+#include<math.h>
+#include<string.h>
 #include"mylispc.h"
 
 zltString mylispcTokenRaw(int token) {
@@ -59,6 +61,72 @@ zltString mylispcTokenRaw(int token) {
   return zltStrMake(NULL, 0);
 }
 
+static bool rawNum(double *dest, zltString raw);
+static int rawToken1(int c);
+static int rawToken2(const char *raw);
+static int rawToken3(const char *raw);
+static int rawToken4(const char *raw);
+
 int mylispcRawToken(double *numval, zltString raw) {
-  ;
+  if (rawNum(numval, raw)) {
+    return MYLISPC_NUM_TOKEN;
+  }
+  if (raw.size == 1) {
+    return rawToken1(*raw.data);
+  }
+  if (raw.size == 2) {
+    return rawToken2(raw.data);
+  }
+  if (raw.size == 3) {
+    return rawToken3(raw.data);
+  }
+  if (raw.size == 4) {
+    return rawToken4(raw.data);
+  }
+  return MYLISPC_ID_TOKEN;
+}
+
+static bool rawInt(int *dest, zltString raw);
+
+bool rawNum(double *dest, zltString raw) {
+  int i;
+  if (rawInt(&i, raw)) {
+    *dest = i;
+    return true;
+  }
+  *dest = 0;
+  zltString s = zltStrToDouble(dest, raw);
+  if (!s.size) {
+    return true;
+  }
+  if (s.size == 3 && strncmp(raw.data, "nan", 3)) {
+    *dest = nan;
+    return true;
+  }
+  return false;
+}
+
+    char c = *raw.data;
+    if (c == '!') {
+      return MYLISPC_EXCLAM_TOKEN;
+    }
+    if (c == '%') {
+      return MYLISPC_PERCENT_TOKEN;
+    }
+    if (c == '&') {
+      return MYLISPC_AMP_TOKEN;
+    }
+    if (c == '(') {
+      return MYLISPC_LPAREN_TOKEN;
+    }
+    if (c == ')') {
+      return MYLISPC_RPAREN_TOKEN;
+    }
+    if (c == '*') {
+      return MYLISPC_ASTERISK_TOKEN;
+    }
+    if (c == '+') {
+      return MYLISPC_PLUS_TOKEN;
+    }
+  }
 }
