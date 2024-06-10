@@ -1,6 +1,7 @@
 #include<ctype.h>
 #include<stdlib.h>
 #include"mylispc.h"
+#include"token.h"
 #include"zlt/stack.h"
 
 typedef const char *It;
@@ -36,19 +37,6 @@ It lineComment(Pos *pos, It it, It end) {
 }
 
 typedef mylispcLexerDest Dest;
-
-It mylispcLexer1(int *token, FILE *err, const Pos *pos, It it, It end) {
-  Dest dest;
-  It it1 = mylispcLexer(&dest, err, pos, it, end);
-  if (it1 == zltInvPtr) {
-    return zltInvPtr;
-  }
-  *token = dest.token;
-  if (token == MYLISPC_STR_TOKEN) {
-    free(dest.strval.data);
-  }
-  return token;
-}
 
 static It lexerStr(zltString *dest, FILE *err, const Pos *pos, int quot, It it, It end);
 static It consumeRaw(It it, It end);
@@ -105,7 +93,7 @@ It lexerStr(zltString *dest, FILE *err, const Pos *pos, int quot, It it, It end)
   return zltInvPtr;
 }
 
-static It escapedChar(char *dest, It it, It end);
+static size_t escapedChar(char *dest, It it, It end);
 
 It lexerStr1(zltStack *dest, FILE *err, const Pos *pos, int quot, It it, It end) {
   if (it == end) {
@@ -115,37 +103,41 @@ It lexerStr1(zltStack *dest, FILE *err, const Pos *pos, int quot, It it, It end)
   if (*it == quot) {
     return it + 1;
   }
+  if (!dest->left && !zltStackRealloc(dest, (dest->top - dest->data) << 1)) {
+    mylispcReportBad(err, MYLISPC_OOM_FATAL, pos);
+    return zltInvPtr;
+  }
   if (*it == '\\') {
     char c;
-    It it1 = escapedChar(c, it + 1, end);
+    size_t n = escapedChar(c, it + 1, end);
     zltStackPush(dest, &c, 1);
-    return lexerStr1(dest, err, pos, quot, it1, end);
+    return lexerStr1(dest, err, pos, quot, it + 1 + n, end);
   }
   zltStackPush(dest, it, 1);
   return lexerStr1(dest, err, pos, quot, it + 1, end);
 }
 
-static It escapedChar8(char *dest, It it, It end, size_t limit);
+static size_t escapedChar8(char *dest, It it, It end, size_t limit);
 
-It escapedChar(char *dest, It it, It end) {
+size_t escapedChar(char *dest, It it, It end) {
   if (it == end) {
     goto A;
   }
   if (*it == '"' || *it == '\'' || *it == '\\') {
     *dest = *it;
-    return it + 1;
+    return 1;
   }
   if (*it == 'n') {
     *dest = '\n';
-    return it + 1;
+    return 1;
   }
   if (*it == 'r') {
     *dest = '\r';
-    return it + 1;
+    return 1;
   }
   if (*it == 't') {
     *dest = '\t';
-    return it + 1;
+    return 1;
   }
   if (*it >= '0' && *it <= '3') {
     return escapedChar8(dest, it, end, 3);
@@ -154,27 +146,40 @@ It escapedChar(char *dest, It it, It end) {
     return escapedChar8(dest, it, end, 2);
   }
   if (*it == 'x' && end - it > 3) {
-    int x = zltIsBasedDigitChar(it[1], 16);
+    int x = zltIsDigitChar(it[1], 16);
     if (x < 0) {
       goto A;
     }
-    int y = zltIsBasedDigitChar(it[2], 16);
+    int y = zltIsDigitChar(it[2], 16);
     if (y < 0) {
       goto A;
     }
     *dest = (x << 4) | y;
-    return it + 3;
+    return 3;
   }
   A:
   *dest = '\\';
-  return end;
+  return 0;
 }
 
-It escapedChar8(char *dest, It it, It end, size_t limit) {
+size_t escapedChar8(char *dest, It it, It end, size_t limit) {
   *dest = 0;
-  int i = 0;
-  for (; it != end && i < limit; ++it, ++i) {
+  size_t n = 0;
+  for (; it != end && n < limit; ++it, ++n) {
     *dest = (*dest << 3) | (*it - '0');
   }
-  return it + i;
+  return n;
+}
+
+It mylispcLexer1(int *token, FILE *err, const Pos *pos, It it, It end) {
+  Dest dest;
+  It it1 = mylispcLexer(&dest, err, pos, it, end);
+  if (it1 == zltInvPtr) {
+    return zltInvPtr;
+  }
+  *token = dest.token;
+  if (token == MYLISPC_STR_TOKEN) {
+    free(dest.strval.data);
+  }
+  return token;
 }
