@@ -8,7 +8,7 @@
 
 #include"zlt/ifcpp_begin.h"
 
-zltString mylispcAddStr(zltStrTree **tree, zltString str);
+const zltString *mylispcAddStr(zltStrTree **tree, zltString str);
 
 typedef struct {
   int clazz;
