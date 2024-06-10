@@ -8,7 +8,7 @@ typedef mylispcPos Pos;
 
 static It nodes(void **dest, Context *ctx, It end0, It end);
 
-void mylispcParse(void **dest, Context *ctx, It it, It end) {
+int mylispcParse(void **dest, Context *ctx, It it, It end) {
   It start1 = nodes(dest, ctx, it, end);
   if (start1 == zltInvPtr) {
     goto A;

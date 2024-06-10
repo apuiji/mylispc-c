@@ -56,6 +56,15 @@ typedef struct {
 
 int mylispcParse(void **dest, mylispcParseContext *ctx, const char *it, const char *end);
 
+typedef struct {
+  FILE *err;
+  mylispcPos *prevPos;
+  zltStrTree **strTree;
+  mylispcPosTree **posTree;
+} mylispcPreprocContext;
+
+int mylispcPreproc(void **dest, mylispcPreprocContext *ctx, void **src);
+
 enum {
   MYLISPC_WARN,
   MYLISPC_ERROR = 0x100,
