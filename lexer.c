@@ -35,42 +35,66 @@ It lineComment(Pos *pos, It it, It end) {
   return lineComment(pos, it + 1, end);
 }
 
+typedef mylispcLexerDest Dest;
+
+It mylispcLexer1(int *token, FILE *err, const Pos *pos, It it, It end) {
+  Dest dest;
+  It it1 = mylispcLexer(&dest, err, pos, it, end);
+  if (it1 == zltInvPtr) {
+    return zltInvPtr;
+  }
+  *token = dest.token;
+  if (token == MYLISPC_STR_TOKEN) {
+    free(dest.strval.data);
+  }
+  return token;
+}
+
 static It lexerStr(zltString *dest, FILE *err, const Pos *pos, int quot, It it, It end);
 static It consumeRaw(It it, It end);
 
-It mylispcLexer(int *token, double *numval, zltString *strval, FILE *err, const Pos *pos, It it, It end) {
+It mylispcLexer(Dest *dest, FILE *err, const Pos *pos, It it, It end) {
   if (it == end) {
-    *token = MYLISPC_EOF_TOKEN;
+    dest->token = MYLISPC_EOF_TOKEN;
     return end;
   }
   if (*it == '(') {
-    *token = MYLISPC_LPAREN_TOKEN;
+    dest->token = MYLISPC_LPAREN_TOKEN;
     return it + 1;
   }
   if (*it == ')') {
-    *token = MYLISPC_RPAREN_TOKEN;
+    dest->token = MYLISPC_RPAREN_TOKEN;
     return it + 1;
   }
   if (*it == '\'' || *it == '"') {
-    It it1 = lexerStr(strval, err, pos, *it, it + 1, end);
+    It it1 = lexerStr(&dest->strval, err, pos, *it, it + 1, end);
     if (!it1) {
-      return NULL;
+      return zltInvPtr;
     }
-    *token = MYLISPC_STR_TOKEN;
+    dest->token = MYLISPC_STR_TOKEN;
     return it1;
   }
   It it1 = consumeRaw(it, end);
   zltString raw = zltStrMakeBE(it, it1);
-  *token = mylispcRawToken(numval, raw);
-  return it1;
+  dest->token = mylispcRawToken(&dest->numval, raw);
+  if (dest->token != -1) {
+    return it1;
+  }
+  return zltInvPtr;
 }
 
 static It lexerStr1(zltStack *dest, FILE *err, const Pos *pos, int quot, It it, It end);
 
 It lexerStr(zltString *dest, FILE *err, const Pos *pos, int quot, It it, It end) {
-  zltStack k = zltStackMake(malloc(64), 64);
+  zltStack k;
+  k.data = malloc(64);
+  if (!k.data) {
+    mylispcReportBad(err, MYLISPC_OOM_FATAL, pos);
+    return zltInvPtr;
+  }
+  k.size = 64;
   It it1 = lexerStr1(&k, err, pos, *it, it + 1, end);
-  if (!it1) {
+  if (it1 == zltInvPtr) {
     goto A;
   }
   size_t size = k.top - k.data;
@@ -78,7 +102,7 @@ It lexerStr(zltString *dest, FILE *err, const Pos *pos, int quot, It it, It end)
   return it1;
   A:
   free(k.data);
-  return NULL;
+  return zltInvPtr;
 }
 
 static It escapedChar(char *dest, It it, It end);
@@ -86,7 +110,7 @@ static It escapedChar(char *dest, It it, It end);
 It lexerStr1(zltStack *dest, FILE *err, const Pos *pos, int quot, It it, It end) {
   if (it == end) {
     mylispcReportBad(err, MYLISPC_UNTERMINATED_STR_FATAL, pos);
-    return NULL;
+    return zltInvPtr;
   }
   if (*it == quot) {
     return it + 1;

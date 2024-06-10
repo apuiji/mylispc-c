@@ -1,11 +1,11 @@
 #include<math.h>
 #include<string.h>
-#include"mylispc.h"
+#include"token.h"
 
 zltString mylispcTokenRaw(int token) {
   #define ifToken(t, raw) \
   if (token == MYLISPC_##t##_TOKEN) { \
-    return zltStrMake(raw, sizeof(raw) - 1); \
+    return zltStrMakeStatic(raw); \
   }
   #define ifKwd(kwd) ifToken(kwd, #kwd)
   ifKwd(callee);
@@ -61,36 +61,84 @@ zltString mylispcTokenRaw(int token) {
   return zltStrMake(NULL, 0);
 }
 
+static bool isRawNum(zltString raw);
 static zltString rawNum(double *dest, zltString raw);
-static int rawKwd(zltString raw);
-static int rawPound(zltString raw);
-static int rawToken1(int c);
-static int rawToken2(const char *raw);
-static int rawToken3(const char *raw);
 
 int mylispcRawToken(double *numval, zltString raw) {
-  if (!zltStrToDouble(numval, raw, rawNum).size) {
+  if (isRawNum(raw)) {
+    if (zltStrToDouble(numval, raw, rawNum).size) {
+      return -1;
+    }
     return MYLISPC_NUM_TOKEN;
   }
-  int i = rawKwd(raw);
-  if (i > 0) {
-    return i;
+  #define ifRaw(r, t) \
+  if (zltStrEqStatic(raw, r)) { \
+    return MYLISPC_##t##_TOKEN; \
   }
-  i = rawPound(raw);
-  if (i > 0) {
-    return i;
-  }
-  if (raw.size == 1) {
-    i = rawToken1(*raw.data);
-  } else if (raw.size == 2) {
-    i = rawToken2(raw.data);
-  } else if (raw.size == 3) {
-    i = rawToken3(raw.data);
-  }
-  if (i > 0) {
-    return i;
-  }
+  #define ifKwd(kwd) ifRaw(#kwd, kwd)
+  ifKwd(callee);
+  ifKwd(def);
+  ifKwd(defer);
+  ifKwd(forward);
+  ifKwd(guard);
+  ifKwd(if);
+  ifKwd(length);
+  ifKwd(return);
+  ifKwd(throw);
+  ifKwd(try);
+  #undef ifKwd
+  // preproc operations begin
+  ifRaw("#", POUND);
+  ifRaw("##", POUND2);
+  ifRaw("#def", POUND_def);
+  ifRaw("#if", POUND_if);
+  ifRaw("#include", POUND_include);
+  ifRaw("#movedef", POUND_movedef);
+  ifRaw("#undef", POUND_undef);
+  // preproc operations end
+  ifRaw("!", EXCLAM);
+  ifRaw("%", PERCENT);
+  ifRaw("&&", AMP2);
+  ifRaw("&", AMP);
+  ifRaw("(", LPAREN);
+  ifRaw(")", RPAREN);
+  ifRaw("**", ASTERISK2);
+  ifRaw("*", ASTERISK);
+  ifRaw("+", PLUS);
+  ifRaw(",", COMMA);
+  ifRaw("-", MINUS);
+  ifRaw(".", DOT);
+  ifRaw("/", SLASH);
+  ifRaw("<<", LT2);
+  ifRaw("<=>", LT_EQ_GT);
+  ifRaw("<=", LT_EQ);
+  ifRaw("<", LT);
+  ifRaw("==", EQ2);
+  ifRaw("=", EQ);
+  ifRaw(">=", GT_EQ);
+  ifRaw(">>>", GT3);
+  ifRaw(">>", GT2);
+  ifRaw(">", GT);
+  ifRaw("^^", CARET2);
+  ifRaw("^", CARET);
+  ifRaw("||", VERTICAL2);
+  ifRaw("|", VERTICAL);
+  ifRaw("~", TILDE);
+  #undef ifRaw
   return MYLISPC_ID_TOKEN;
+}
+
+static bool isRawNum1(zltString raw);
+
+bool isRawNum(zltString raw) {
+  if (*raw.data == '+' || *raw.data == '-') {
+    return isRawNum1(zltStrForward(raw, 1));
+  }
+  return isRawNum1(raw);
+}
+
+bool isRawNum1(zltString raw) {
+  return raw.size && isdigit(*raw.data);
 }
 
 static bool rawBasedInt(unsigned long *dest, zltString raw);
@@ -101,11 +149,11 @@ zltString rawNum(double *dest, zltString raw) {
     *dest = ul;
     goto A;
   }
-  if (raw.size == 3 && !strncmp(raw.data, "NaN", 3)) {
+  if (zltStrEqStatic(raw, "NaN")) {
     *dest = NAN;
     goto A;
   }
-  if (raw.size == 8 && !strncmp(raw.data, "infinity", 8)) {
+  if (zltStrEqStatic(raw, "infinity")) {
     *dest = INFINITY;
     goto A;
   }
@@ -132,165 +180,4 @@ bool rawBasedInt(unsigned long *dest, zltString raw) {
     return false;
   }
   return !zltStrToULong(dest, raw, base).size;
-}
-
-int rawKwd(zltString raw) {
-  if (raw.size == 6 && !strncmp(raw.data, "callee", 6)) {
-    return MYLISPC_callee_TOKEN;
-  }
-  if (raw.size == 3 && !strncmp(raw.data, "def", 3)) {
-    return MYLISPC_def_TOKEN;
-  }
-  if (raw.size == 5 && !strncmp(raw.data, "defer", 5)) {
-    return MYLISPC_defer_TOKEN;
-  }
-  if (raw.size == 7 && !strncmp(raw.data, "forward", 7)) {
-    return MYLISPC_forward_TOKEN;
-  }
-  if (raw.size == 5 && !strncmp(raw.data, "guard", 5)) {
-    return MYLISPC_guard_TOKEN;
-  }
-  if (raw.size == 2 && !strncmp(raw.data, "if", 2)) {
-    return MYLISPC_if_TOKEN;
-  }
-  if (raw.size == 6 && !strncmp(raw.data, "length", 6)) {
-    return MYLISPC_length_TOKEN;
-  }
-  if (raw.size == 6 && !strncmp(raw.data, "return", 6)) {
-    return MYLISPC_return_TOKEN;
-  }
-  if (raw.size == 5 && !strncmp(raw.data, "throw", 5)) {
-    return MYLISPC_throw_TOKEN;
-  }
-  if (raw.size == 3 && !strncmp(raw.data, "try", 3)) {
-    return MYLISPC_try_TOKEN;
-  }
-  return 0;
-}
-
-int rawPound(zltString raw) {
-  if (raw.size == 1 && *raw.data == '#') {
-    return MYLISPC_POUND_TOKEN;
-  }
-  if (raw.size == 2 && !strncmp(raw.data, "##", 2)) {
-    return MYLISPC_POUND2_TOKEN;
-  }
-  if (raw.size == 4 && !strncmp(raw.data, "#def", 4)) {
-    return MYLISPC_POUND_def_TOKEN;
-  }
-  if (raw.size == 3 && !strncmp(raw.data, "#if", 3)) {
-    return MYLISPC_POUND_if_TOKEN;
-  }
-  if (raw.size == 8 && !strncmp(raw.data, "#include", 8)) {
-    return MYLISPC_POUND_include_TOKEN;
-  }
-  if (raw.size == 8 && !strncmp(raw.data, "#movedef", 8)) {
-    return MYLISPC_POUND_movedef_TOKEN;
-  }
-  if (raw.size == 6 && !strncmp(raw.data, "#undef", 6)) {
-    return MYLISPC_POUND_undef_TOKEN;
-  }
-  return 0;
-}
-
-int rawToken1(int c) {
-  if (c == '!') {
-    return MYLISPC_EXCLAM_TOKEN;
-  }
-  if (c == '%') {
-    return MYLISPC_PERCENT_TOKEN;
-  }
-  if (c == '&') {
-    return MYLISPC_AMP_TOKEN;
-  }
-  if (c == '(') {
-    return MYLISPC_LPAREN_TOKEN;
-  }
-  if (c == ')') {
-    return MYLISPC_RPAREN_TOKEN;
-  }
-  if (c == '*') {
-    return MYLISPC_ASTERISK_TOKEN;
-  }
-  if (c == '+') {
-    return MYLISPC_PLUS_TOKEN;
-  }
-  if (c == ',') {
-    return MYLISPC_COMMA_TOKEN;
-  }
-  if (c == '-') {
-    return MYLISPC_MINUS_TOKEN;
-  }
-  if (c == '.') {
-    return MYLISPC_DOT_TOKEN;
-  }
-  if (c == '/') {
-    return MYLISPC_SLASH_TOKEN;
-  }
-  if (c == '<') {
-    return MYLISPC_LT_TOKEN;
-  }
-  if (c == '=') {
-    return MYLISPC_EQ_TOKEN;
-  }
-  if (c == '>') {
-    return MYLISPC_GT_TOKEN;
-  }
-  if (c == '@') {
-    return MYLISPC_AT_TOKEN;
-  }
-  if (c == '^') {
-    return MYLISPC_CARET_TOKEN;
-  }
-  if (c == '|') {
-    return MYLISPC_VERTICAL_TOKEN;
-  }
-  if (c == '~') {
-    return MYLISPC_TILDE_TOKEN;
-  }
-  return 0;
-}
-
-int rawToken2(const char *raw) {
-  if (!strncmp(raw, "&&", 2)) {
-    return MYLISPC_AMP2_TOKEN;
-  }
-  if (!strncmp(raw, "**", 2)) {
-    return MYLISPC_ASTERISK2_TOKEN;
-  }
-  if (!strncmp(raw, "<<", 2)) {
-    return MYLISPC_LT2_TOKEN;
-  }
-  if (!strncmp(raw, "<=", 2)) {
-    return MYLISPC_LT_EQ_TOKEN;
-  }
-  if (!strncmp(raw, "==", 2)) {
-    return MYLISPC_EQ2_TOKEN;
-  }
-  if (!strncmp(raw, ">=", 2)) {
-    return MYLISPC_GT_EQ_TOKEN;
-  }
-  if (!strncmp(raw, ">>", 2)) {
-    return MYLISPC_GT2_TOKEN;
-  }
-  if (!strncmp(raw, "^^", 2)) {
-    return MYLISPC_CARET2_TOKEN;
-  }
-  if (!strncmp(raw, "||", 2)) {
-    return MYLISPC_VERTICAL2_TOKEN;
-  }
-  return 0;
-}
-
-int rawToken3(const char *raw) {
-  if (!strncmp(raw, "#if", 3)) {
-    return MYLISPC_POUND_if_TOKEN;
-  }
-  if (!strncmp(raw, "<=>", 3)) {
-    return MYLISPC_LT_EQ_GT_TOKEN;
-  }
-  if (!strncmp(raw, ">>>", 3)) {
-    return MYLISPC_GT3_TOKEN;
-  }
-  return 0;
 }
