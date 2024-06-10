@@ -39,7 +39,7 @@ static inline void **mylispcPosTreeFindForInsert(void **parent, void **tree, con
   return zltBiTreeFindForInsert(parent, tree, mylispcPosTreeCmpForFind, pos);
 }
 
-const mylispcPos *mylispcPosTreeInsert(void **tree, const mylispcPos *pos);
+const mylispcPos *mylispcAddPos(mylispcPosTree **tree, const mylispcPos *pos);
 
 #include"zlt/ifcpp_end.h"
 

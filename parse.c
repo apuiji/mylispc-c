@@ -44,22 +44,75 @@ It node(void **dest, Context *ctx, It start0, It end) {
   if (end0 == zltInvPtr) {
     return zltInvPtr;
   }
-  if (ld0.token == MYLISPC_EOF_TOKEN) {
+  if (ld0.token == MYLISPC_EOF_TOKEN || ld0.token == MYLISPC_RPAREN_TOKEN) {
     return NULL;
   }
+  const Pos *pos0 = mylispcAddPos(ctx.posTree, &ctx.pos);
+  if (pos0 == zltInvPtr) {
+    if (ld0.token == MYLISPC_STR_TOKEN) {
+      goto B;
+    } else {
+      goto A;
+    }
+  }
   if (ld0.token == MYLISPC_ID_TOKEN) {
-    zltString s = zltStrClone(zltStrMakeBE(start0, end0));
-    if (s.data == zltInvPtr) {
+    zltString raw = mylispcAddStr(ctx->strTree, zltStrMakeBE(start0, end0));
+    if (raw.data == zltInvPtr) {
       goto A;
     }
     *dest = zltTypeAlloc(mylispcIDAtom);
     if (!*dest) {
       goto A;
     }
-    zltPointTo(*dest, mylispcIDAtom) = mylispcIDAtomMake(pos, );
+    zltPointTo(*dest, mylispcIDAtom) = mylispcIDAtomMake(pos0, raw);
+    return end0;
+  }
+  if (ld0.token == MYLISPC_NUM_TOKEN) {
+    zltString raw = mylispcAddStr(ctx->strTree, zltStrMakeBE(start0, end0));
+    if (raw.data == zltInvPtr) {
+      goto A;
+    }
+    *dest = zltTypeAlloc(mylispcNumAtom);
+    if (!*dest) {
+      goto A;
+    }
+    zltPointTo(*dest, mylispcNumAtom) = mylispcNumAtomMake(pos0, raw, ld0.numval);
+    return end0;
+  }
+  if (ld0.token == MYLISPC_STR_TOKEN) {
+    zltString value = mylispcAddStr(ctx->strTree, ld0.strval);
+    if (value.data == zltInvPtr) {
+      goto B;
+    }
+    *dest = zltTypeAlloc(mylispcStrAtom);
+    if (!*dest) {
+      goto B;
+    }
+    zltPointTo(*dest, mylispcStrAtom) = mylispcStrAtomMake(pos0, value);
+    return end0;
+  }
+  if (ld0.token == MYLISPC_LPAREN_TOKEN) {
+    void *nodes1 = NULL;
+    It start2 = nodes(&nodes1, ctx, end0, end);
+    if (start2 == zltInvPtr) {
+      goto AA;
+    }
+    int token2;
+    It end2 = mylispcLexer1(&token2, ctx.err, &ctx.pos, start2, end);
+    if (end2 == zltIntPtr) {
+      goto AA;
+    }
+    if (token2 != MYLISPC_RPAREN_TOKEN) {
+      mylispcReportBad(ctx.err, MYLISPC_UNTERMINATED_LIST_FATAL, pos0);
+      goto AA;
+    }
+    AA:
+    mylispcNodeClean(nodes1);
     goto A;
   }
+  B:
+  free(ld0.strval.data);
   A:
-  mylispcReportBad(err, MYLISPC_OOM_FATAL, pos);
+  mylispcReportBad(err, MYLISPC_OOM_FATAL, pos0);
   return zltInvPtr;
 }

@@ -68,6 +68,7 @@ It mylispcLexer(Dest *dest, FILE *err, const Pos *pos, It it, It end) {
   if (dest->token != -1) {
     return it1;
   }
+  mylispcReportBad(err, MYLISPC_UNRECOGNIZED_SYMBOL_FATAL, pos);
   return zltInvPtr;
 }
 

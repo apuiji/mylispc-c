@@ -8,6 +8,8 @@
 
 #include"zlt/ifcpp_begin.h"
 
+zltString mylispcAddStr(zltStrTree **tree, zltString str);
+
 typedef struct {
   int clazz;
   const mylispcPos *pos;
@@ -48,8 +50,8 @@ const char *mylispcLexer1(int *token, FILE *err, const mylispcPos *pos, const ch
 typedef struct {
   FILE *err;
   mylispcPos pos;
-  zltStrTree *strTree;
-  mylispcPosTree *posTree;
+  zltStrTree **strTree;
+  mylispcPosTree **posTree;
 } mylispcParseContext;
 
 int mylispcParse(void **dest, mylispcParseContext *ctx, const char *it, const char *end);
@@ -59,6 +61,8 @@ enum {
   MYLISPC_ERROR = 0x100,
   MYLISPC_FATAL = 0x200,
   MYLISPC_OOM_FATAL,
+  MYLISPC_UNRECOGNIZED_SYMBOL_FATAL,
+  MYLISPC_UNTERMINATED_LIST_FATAL,
   MYLISPC_UNTERMINATED_STR_FATAL
 };
 
