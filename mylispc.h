@@ -4,6 +4,7 @@
 #include<stdio.h>
 #include"pos.h"
 #include"zlt/link.h"
+#include"zlt/stack.h"
 #include"zlt/strtree.h"
 
 #include"zlt/ifcpp_begin.h"
@@ -11,9 +12,9 @@
 const zltString *mylispcAddStr(zltStrTree **tree, zltString str);
 
 typedef struct {
+  zltLink link;
   int clazz;
   const mylispcPos *pos;
-  void *next;
 } mylispcNode;
 
 #define mylispcNodeMemb(p, m) zltMemb(p, mylispcNode, m)
@@ -23,7 +24,10 @@ static inline mylispcNode mylispcNodeMake(int clazz, const mylispcPos *pos) {
 }
 
 void mylispcNodeDtor(void *node);
-void mylispcNodeClean(void *node);
+
+static inline void mylispcNodeClean(void *node) {
+  zltLinkClean(node, NULL, mylispcNodeDtor);
+}
 
 enum {
   MYLISPC_RAW_ATOM_CLASS = 0x100,
@@ -57,10 +61,23 @@ typedef struct {
 int mylispcParse(void **dest, mylispcParseContext *ctx, const char *it, const char *end);
 
 typedef struct {
+  zltStack params;
+  mylispcNode *body;
+} mylispcMacro;
+
+typedef struct {
+  zltStrTree strTree;
+  mylispcMacro macro;
+} mylispcMacroTree;
+
+const mylispcMacro *mylispcAddMacro(mylispcMacroTree **tree, const mylispcMacro *macro);
+
+typedef struct {
   FILE *err;
   mylispcPos *prevPos;
   zltStrTree **strTree;
   mylispcPosTree **posTree;
+  mylispcMacroTree **macroTree;
 } mylispcPreprocContext;
 
 int mylispcPreproc(void **dest, mylispcPreprocContext *ctx, void **src);

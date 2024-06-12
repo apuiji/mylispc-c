@@ -35,7 +35,7 @@ It nodes(void **dest, Context *ctx, It end0, It end) {
   if (!end1) {
     return start1;
   }
-  return nodes(&mylispcNodeMemb(*dest, next), ctx, end1, end);
+  return nodes(&zltLinkMemb(*dest, next), ctx, end1, end);
 }
 
 static bool idAtom(void **dest, Context *ctx, const Pos *pos, zltString raw);
